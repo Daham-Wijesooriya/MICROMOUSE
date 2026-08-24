@@ -133,6 +133,37 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     /* USER CODE END ADC1_MspInit 1 */
 
   }
+  else if(hadc->Instance==ADC2)
+  {
+    /* USER CODE BEGIN ADC2_MspInit 0 */
+
+    /* USER CODE END ADC2_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_ADC2_CLK_ENABLE();
+
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**ADC2 GPIO Configuration
+    PC4     ------> ADC2_IN14  (IR_RX2, per F405_CubeMX_pinmap.md)
+    PC5     ------> ADC2_IN15  (IR_RX3)
+    PA0     ------> ADC2_IN0   (M2_ISENSE_A, injected -- not used in this bring-up firmware)
+    PA1     ------> ADC2_IN1   (M2_ISENSE_B)
+    PA2     ------> ADC2_IN2   (M2_ISENSE_C)
+    */
+    GPIO_InitStruct.Pin = IR_RX2_Pin|IR_RX3_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = M2_ISENSE_A_Pin|M2_ISENSE_B_Pin|M2_ISENSE_C_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    /* USER CODE BEGIN ADC2_MspInit 1 */
+
+    /* USER CODE END ADC2_MspInit 1 */
+
+  }
 
 }
 
@@ -178,6 +209,20 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     /* USER CODE BEGIN ADC1_MspDeInit 1 */
 
     /* USER CODE END ADC1_MspDeInit 1 */
+  }
+  else if(hadc->Instance==ADC2)
+  {
+    /* USER CODE BEGIN ADC2_MspDeInit 0 */
+
+    /* USER CODE END ADC2_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_ADC2_CLK_DISABLE();
+
+    HAL_GPIO_DeInit(GPIOC, IR_RX2_Pin|IR_RX3_Pin);
+    HAL_GPIO_DeInit(GPIOA, M2_ISENSE_A_Pin|M2_ISENSE_B_Pin|M2_ISENSE_C_Pin);
+    /* USER CODE BEGIN ADC2_MspDeInit 1 */
+
+    /* USER CODE END ADC2_MspDeInit 1 */
   }
 
 }

@@ -151,6 +151,8 @@ void Error_Handler(void);
 #define IR_EM5_GPIO_Port GPIOB
 #define TAIL_PWM_Pin GPIO_PIN_8
 #define TAIL_PWM_GPIO_Port GPIOB
+#define IR_EM6_Pin GPIO_PIN_2
+#define IR_EM6_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 

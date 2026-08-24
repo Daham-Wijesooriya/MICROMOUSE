@@ -1,6 +1,12 @@
 # Add sources to executable/library
 target_sources(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/main.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/hw_spi.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/drv8316.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/as5047p.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/icm42670.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/ir_sense.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/bringup.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/stm32f4xx_hal_msp.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/stm32f4xx_it.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/syscalls.c"

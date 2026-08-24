@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body - MOSFET U4 & System Fix
+  * @brief          : Main program body - peripheral bring-up test sequencer
   ******************************************************************************
   * @attention
   *
@@ -21,7 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "hw_spi.h"
+#include "ir_sense.h"
+#include "bringup.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,6 +43,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
 
 /* USER CODE BEGIN PV */
 
@@ -50,6 +53,7 @@ ADC_HandleTypeDef hadc1;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,59 +93,27 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_ADC1_Init();
+  MX_ADC2_Init();
 
   /* USER CODE BEGIN 2 */
-  /* Wake up gate driver power rail (NSLEEP = HIGH) so MOSFET U4 receives power */
+  SPI1_HW_Init();   /* encoder bus (AS5047P x2)              */
+  SPI2_HW_Init();   /* driver + IMU bus (DRV8316 x2, ICM-42670) */
+  IR_Init();
+
+  /* Wake gate driver power rail (NSLEEP = HIGH). DRVOFF is already HIGH
+   * (safe/Hi-Z) from MX_GPIO_Init and stays HIGH for the rest of this
+   * bring-up firmware -- it is only ever meant to go low right before
+   * enabling PWM, after BUCK_DIS is confirmed written and nFAULT is
+   * confirmed clear (see drv8316.h / bringup.c). This firmware never
+   * enables motor outputs. */
   HAL_GPIO_WritePin(GPIOC, NSLEEP_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOC, DRVOFF_Pin, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  Bringup_RunAll(); /* runs 6a-6f in order; never returns (see bringup.c) */
   while (1)
   {
-    // Step 1: Red ON
-    HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LED_GRN_GPIO_Port, LED_GRN_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(TAIL_PWM_GPIO_Port, TAIL_PWM_Pin, GPIO_PIN_RESET);
-    HAL_Delay(200);
-
-    // Step 2: Green ON
-    HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_GRN_GPIO_Port, LED_GRN_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(TAIL_PWM_GPIO_Port, TAIL_PWM_Pin, GPIO_PIN_RESET);
-    HAL_Delay(200);
-
-    // Step 3: Blue ON
-    HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_GRN_GPIO_Port, LED_GRN_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(TAIL_PWM_GPIO_Port, TAIL_PWM_Pin, GPIO_PIN_RESET);
-    HAL_Delay(200);
-
-    // Step 4: Tail Light ON (MOSFET U4 Gate HIGH)
-    HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_GRN_GPIO_Port, LED_GRN_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(TAIL_PWM_GPIO_Port, TAIL_PWM_Pin, GPIO_PIN_SET);
-    HAL_Delay(200);
-
-    // Step 5: All ON (Flash)
-    HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LED_GRN_GPIO_Port, LED_GRN_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(TAIL_PWM_GPIO_Port, TAIL_PWM_Pin, GPIO_PIN_SET);
-    HAL_Delay(300);
-
-    // Step 6: All OFF
-    HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_GRN_GPIO_Port, LED_GRN_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(TAIL_PWM_GPIO_Port, TAIL_PWM_Pin, GPIO_PIN_RESET);
-    HAL_Delay(300);
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -243,6 +215,58 @@ static void MX_ADC1_Init(void)
 }
 
 /**
+  * @brief ADC2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC2_Init(void)
+{
+
+  /* USER CODE BEGIN ADC2_Init 0 */
+
+  /* USER CODE END ADC2_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC2_Init 1 */
+
+  /* USER CODE END ADC2_Init 1 */
+
+  /** Configure the global features of the ADC */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = DISABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel:
+   *  default/placeholder channel only -- ir_sense.c reconfigures the
+   *  channel before every read (see ADC_ChannelConfTypeDef in ReadOne()). */
+  sConfig.Channel = ADC_CHANNEL_14; /* IR_RX2 (PC4) */
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
+
+  /* USER CODE END ADC2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -258,8 +282,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /* Configure Output Pin Levels for Port C */
-  HAL_GPIO_WritePin(GPIOC, NSLEEP_Pin|DRVOFF_Pin|LED_RED_Pin|LED_GRN_Pin
+  HAL_GPIO_WritePin(GPIOC, NSLEEP_Pin|LED_RED_Pin|LED_GRN_Pin
                           |LED_BLUE_Pin, GPIO_PIN_RESET);
+  /* DRVOFF idles HIGH (safe/Hi-Z) from power-up -- see step-0 fix note in
+   * USER CODE 2 below. Do not default this to RESET/LOW. */
+  HAL_GPIO_WritePin(GPIOC, DRVOFF_Pin, GPIO_PIN_SET);
 
   /* Configure Output Pin Levels for Port B (Keep CS high to avoid bus contention) */
   HAL_GPIO_WritePin(GPIOB, IR_EM1_Pin|IR_EM2_Pin|IR_EM3_Pin|IR_EM4_Pin|IR_EM5_Pin
