@@ -44,15 +44,16 @@ void SPI2_HW_Init(void)
   __HAL_RCC_SPI2_CLK_ENABLE();
 
   SPI2->CR1 = 0;
-  /* NOTE: CPOL/CPHA below is Mode 1, matching SPI1. This is NOT yet verified
-   * against the DRV8316 or ICM-42670 datasheets -- see the VERIFY comments
-   * in drv8316.h / icm42670.h. If register read-back fails in bring-up,
-   * this is the first thing to try flipping (Mode 1 <-> Mode 3, i.e. add
-   * SPI_CR1_CPOL below). */
+  /* Mode 1 (CPOL=0, CPHA=1) confirmed against SimpleFOC's working DRV8316
+   * driver (SPI_MODE1) -- see drv8316.h. ICM-42670's mode is still
+   * unconfirmed; if its reads look wrong, that's the first thing to try
+   * flipping for that device specifically. */
   SPI2->CR1 = SPI_CR1_MSTR
             | SPI_CR1_SSM | SPI_CR1_SSI
             | SPI_CR1_CPHA        /* Mode 1: CPOL=0, CPHA=1 */
-            | SPI_BR_DIV16;       /* 42 MHz / 16 = 2.625 MHz */
+            | SPI_BR_DIV32;       /* 42 MHz / 32 = 1.3125 MHz, close to the
+                                    * 1 MHz the reference DRV8316 driver uses
+                                    * and well under its ~5 MHz max. */
   SPI2->CR2 = 0;
   SPI2->CR1 |= SPI_CR1_SPE;
 }

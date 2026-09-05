@@ -24,6 +24,8 @@
 #include "hw_spi.h"
 #include "ir_sense.h"
 #include "bringup.h"
+#include "motor_test.h"
+#include "io_selftest.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,17 +103,18 @@ int main(void)
   IR_Init();
 
   /* Wake gate driver power rail (NSLEEP = HIGH). DRVOFF is already HIGH
-   * (safe/Hi-Z) from MX_GPIO_Init and stays HIGH for the rest of this
-   * bring-up firmware -- it is only ever meant to go low right before
-   * enabling PWM, after BUCK_DIS is confirmed written and nFAULT is
-   * confirmed clear (see drv8316.h / bringup.c). This firmware never
-   * enables motor outputs. */
+   * (safe/Hi-Z) from MX_GPIO_Init and stays HIGH through Bringup_RunAll().
+   * The only place DRVOFF is ever pulled low is motor_test.c's gated,
+   * hold-to-arm open-loop spin test, and only for a driver whose BUCK_DIS
+   * write was confirmed during bring-up -- see motor_test.h. */
   HAL_GPIO_WritePin(GPIOC, NSLEEP_Pin, GPIO_PIN_SET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  Bringup_RunAll(); /* runs 6a-6f in order; never returns (see bringup.c) */
+  IoSelfTest_Run(10000); /* 10s BTN_START/BTN_MODE -> LED smoke test; confirms a fresh flash + basic GPIO before anything SPI/ADC-dependent runs */
+  Bringup_RunAll();    /* runs 6a-6f; halts internally (see bringup.c) on any hard fail */
+  MotorTest_RunGated(); /* gated open-loop spin test (6g); never returns; see motor_test.c */
   while (1)
   {
     /* USER CODE END WHILE */

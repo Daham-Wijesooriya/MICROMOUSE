@@ -102,13 +102,14 @@ static void Stage_Spi2Drivers(void)
   DRV8316_Handle drv1 = { DRV1_CS_GPIO_Port, DRV1_CS_Pin };
   DRV8316_Handle drv2 = { DRV2_CS_GPIO_Port, DRV2_CS_Pin };
 
-  uint16_t r1 = DRV8316_ReadReg(&drv1, DRV8316_REG_FAULT_STATUS);
-  uint16_t r2 = DRV8316_ReadReg(&drv2, DRV8316_REG_FAULT_STATUS);
+  uint8_t r1 = DRV8316_ReadReg(&drv1, DRV8316_REG_IC_STATUS);
+  uint8_t r2 = DRV8316_ReadReg(&drv2, DRV8316_REG_IC_STATUS);
 
   /* Heuristic only: MISO stuck all-0 or all-1 means "bus is dead", not a
-   * real register value -- see drv8316.h register-map warning. */
-  g_bringup.drv1_comms_ok = (r1 != 0x0000U) && (r1 != 0x07FFU);
-  g_bringup.drv2_comms_ok = (r2 != 0x0000U) && (r2 != 0x07FFU);
+   * real register value. Data field is 8 bits now that the frame format is
+   * corrected (R/W:1 addr:6 parity:1 data:8) -- see drv8316.h. */
+  g_bringup.drv1_comms_ok = (r1 != 0x00U) && (r1 != 0xFFU);
+  g_bringup.drv2_comms_ok = (r2 != 0x00U) && (r2 != 0xFFU);
 
   if (!g_bringup.drv1_comms_ok && !g_bringup.drv2_comms_ok)
   {
@@ -117,14 +118,21 @@ static void Stage_Spi2Drivers(void)
     Bringup_Halt();
   }
 
+  /* Attempt to clear any latched fault before configuring -- some gate
+   * drivers refuse config writes while a fault is latched, which would
+   * otherwise show up here as "buck config failed" for the wrong reason. */
+  DRV8316_ClearFaults(&drv1);
+  DRV8316_ClearFaults(&drv2);
+
   g_bringup.drv1_buck_cfg_ok = DRV8316_ConfigureBuckDisablePwmMode(&drv1);
   g_bringup.drv2_buck_cfg_ok = DRV8316_ConfigureBuckDisablePwmMode(&drv2);
 
   if (!g_bringup.drv1_buck_cfg_ok || !g_bringup.drv2_buck_cfg_ok)
   {
-    /* Not a hard fail by itself: DRV8316_REG_CTRL2 / bit positions are
-     * unverified placeholders (see drv8316.h). Flag and keep going so you
-     * can still check nFAULT below. */
+    /* Not a hard fail by itself: the register map is now cross-checked
+     * against a working reference driver (see drv8316.h) but still not the
+     * TI datasheet directly. Flag and keep going so you can still check
+     * nFAULT below. */
     g_bringup.any_soft_issue = true;
   }
 
@@ -202,11 +210,13 @@ void Bringup_RunAll(void)
   Stage_Imu();              /* 6e */
   Stage_IrSensors();        /* 6f */
 
-  /* Reached the end without a hard fail. Motor PWM (6g) is intentionally
-   * not automated -- do that manually per the bring-up plan. */
+  /* Reached the end without a hard fail (Bringup_Halt() never returns).
+   * Show the summary color briefly, then hand control back to main() --
+   * whatever runs next (e.g. MotorTest_RunGated()) checks the specific
+   * g_bringup flags it cares about rather than this one-bit summary. */
   if (g_bringup.any_soft_issue)
   {
-    while (1)
+    for (int i = 0; i < 4; i++)
     {
       LedSet(true, false, false);
       HAL_Delay(300);
@@ -217,6 +227,6 @@ void Bringup_RunAll(void)
   else
   {
     LedSet(false, true, false);
-    while (1) { }
+    HAL_Delay(1000);
   }
 }

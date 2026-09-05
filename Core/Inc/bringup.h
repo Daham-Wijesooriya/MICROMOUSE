@@ -6,9 +6,11 @@
  *            1) latched into g_bringup (inspect live with a debugger), and
  *            2) summarized on the RGB LED (see Bringup_RunAll doc comment).
  *
- *          Motor PWM (step 6g) is deliberately NOT included here -- that
- *          step requires a human watching for smoke/smell/current spikes in
- *          real time and must not be run unattended.
+ *          Motor PWM (step 6g) is NOT run here -- see motor_test.h for the
+ *          separate, explicitly-gated open-loop spin test that runs after
+ *          this returns. Bringup_RunAll() halts internally (never returns)
+ *          on a hard fail; otherwise it shows a brief summary color and
+ *          returns, so main() can decide what runs next.
  ******************************************************************************
  */
 #ifndef BRINGUP_H

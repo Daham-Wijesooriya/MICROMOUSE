@@ -15,8 +15,9 @@
  * SPI2 = driver + IMU bus (DRV8316 x2, ICM-42670) -> APB1 = 42 MHz
  *
  * Both peripherals are configured for CPOL=0 / CPHA=1 (SPI "Mode 1"), per
- * the encoder note in F405_CubeMX_pinmap.md. SPI2's mode is NOT confirmed
- * against the DRV8316 / ICM-42670 datasheets yet -- see drv8316.h / icm42670.h.
+ * the encoder note in F405_CubeMX_pinmap.md. SPI2's mode is confirmed
+ * correct for the DRV8316 against a working reference driver -- see
+ * drv8316.h. ICM-42670's mode is still unconfirmed -- see icm42670.h.
  ******************************************************************************
  */
 #ifndef HW_SPI_H
@@ -27,7 +28,8 @@
 /* Conservative first-bring-up clock: APB2/32 = 2.625 MHz (AS5047P max 10 MHz). */
 void SPI1_HW_Init(void);
 
-/* Conservative first-bring-up clock: APB1/16 = 2.625 MHz, shared by 3 devices. */
+/* APB1/32 = 1.3125 MHz -- close to the 1 MHz a known-working DRV8316
+ * reference driver uses, well under its ~5 MHz max, shared by 3 devices. */
 void SPI2_HW_Init(void);
 
 uint8_t  SPI1_TxRx8(uint8_t tx);
