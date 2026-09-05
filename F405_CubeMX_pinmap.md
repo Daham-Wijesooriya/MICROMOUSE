@@ -132,3 +132,48 @@ No external crystal (HSI → PLL → 168 MHz). Debug = Serial Wire.
 - **PB3 / PB4** — JTAG pins; set Debug = Serial Wire to free them as GPIO (IR_EM1/2).
 - **PB2** — BOOT1; free GPIO or no-connect.
 - **BOOT0** — 10k pulldown; boots from flash.
+
+---
+
+## Recent board modifications — SPI lines (post-manufacture bodges)
+
+These are physical rework additions made to the assembled board, on top of the original schematic. Not yet reflected in any PCB revision — track these for the next respin.
+
+### 1. SPI2_MISO pull-up (bodge)
+
+- **Issue:** DRV8316 datasheet specifies SDO requires an external pull-up (open-drain-style behavior on this pin). Missing from the original schematic.
+- **Fix:** one **10 kΩ resistor, SPI2_MISO → 3V3**, hand-soldered onto the assembled board.
+- **Scope:** covers the whole shared bus in one resistor — SPI2_MISO carries SDO from **DRV1, DRV2, and the IMU**, all tri-stated except when their own CS is active. One pull-up defines the idle-high state for all three.
+
+### 2. nFAULT pull-up (bodge)
+
+- **Issue:** nFAULT is an open-drain fault output; also missing its required external pull-up in the original schematic.
+- **Fix:** one **10 kΩ resistor, nFAULT → 3V3**, bodged.
+- **Why it matters beyond function:** DRV8316 datasheet warns nFAULT must be pulled >2.2 V at power-up or the device enters test mode. The pull-up must reach that level before/as VM rises.
+- **Risk carried forward:** the pull-up goes to board 3V3 (from the TPS563201 buck), which comes up slightly after VM (battery, direct). If 3V3 lags too much, there's a brief window where nFAULT could sit low at power-up. TPS563201 has fast startup, so likely fine — watch first power-up for correct SPI response from both drivers as confirmation.
+
+### 3. SPI2 bus — shared by 3 devices (by design, not a fix)
+
+SPI2_MISO carries SDO from all three devices below. Tri-state release + the one pull-up above keeps the bus clean:
+
+| CS pin | Device |
+|---|---|
+| PB10 | IMU_CS |
+| PB11 | DRV2_CS |
+| PB12 | DRV1_CS |
+
+SCK/MOSI/MISO = PB13/14/15.
+
+### 4. SPI1 — encoders, separate bus, unaffected by the bodges
+
+PA5/6/7 = SCK/MISO/MOSI. CS: PA15 (ENC1), PA12 (ENC2).
+
+**Open item:** the AS5047P's SDO pull-up requirement hasn't been explicitly checked against its datasheet. Given the DRV8316's SDO pull-up was missed once already, worth confirming before assuming SPI1 is clean.
+
+### Net effect
+
+No pin reassignments, no bus restructuring. Two bodge resistors (10 kΩ each, both to 3V3) added post-manufacture:
+- SPI2_MISO → 3V3
+- NFAULT → 3V3
+
+**For the next PCB revision:** add both pull-ups properly in the schematic, and do a full open-drain/needs-pullup pass on every IC's datasheet (SPI1/AS5047P included) before sending to fab.

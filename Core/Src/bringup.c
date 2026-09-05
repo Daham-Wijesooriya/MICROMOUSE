@@ -113,8 +113,11 @@ static void Stage_Spi2Drivers(void)
 
   if (!g_bringup.drv1_comms_ok && !g_bringup.drv2_comms_ok)
   {
-    /* Both drivers dead on the shared bus -- almost certainly the missing
-     * SPI2_MISO 10k pull-up bodge, not two simultaneously-dead chips. */
+    /* Both drivers dead on the shared bus. The SPI2_MISO 10k pull-up bodge
+     * is now confirmed physically installed (F405_CubeMX_pinmap.md), so
+     * this is no longer the prime suspect it once was -- if this still
+     * fires, look at CS wiring, VM reaching both drivers, or a real fault
+     * on the shared bus rather than assuming the pull-up again. */
     Bringup_Halt();
   }
 
@@ -139,7 +142,15 @@ static void Stage_Spi2Drivers(void)
   g_bringup.nfault_high_after_cfg = (HAL_GPIO_ReadPin(NFAULT_GPIO_Port, NFAULT_Pin) == GPIO_PIN_SET);
   if (!g_bringup.nfault_high_after_cfg)
   {
-    /* Real fault asserted after touching the driver config -- stop. */
+    /* Real fault asserted after touching the driver config -- stop.
+     * nFAULT's 10k pull-up bodge is now confirmed installed
+     * (F405_CubeMX_pinmap.md), so a low reading here means something
+     * actually pulled it low, not a floating pin. Per that doc, DRV8316
+     * requires nFAULT >2.2V at power-up or it enters test mode; since 3V3
+     * (from the buck) can lag VM slightly on power-up, a fault latched from
+     * that brief window at boot is possible -- DRV8316_ClearFaults() above
+     * is the attempt to recover from that before concluding it's a live
+     * fault. */
     Bringup_Halt();
   }
 }
@@ -203,12 +214,20 @@ static void Stage_IrSensors(void)
 
 void Bringup_RunAll(void)
 {
+  /* Order matters here: everything except Stage_Spi2Drivers runs entirely
+   * off logic 3V3 (buttons/LEDs are plain GPIO; the AS5047Ps, ICM-42670,
+   * and IR emitters/receivers are all 3V3-powered per the schematic) --
+   * none of them need VM/battery. Stage_Spi2Drivers is VM-dependent (the
+   * DRV8316s generate their own digital supply from VM) and WILL hard-halt
+   * with no VM present, which is correct behavior, not a bug -- so it runs
+   * LAST, to avoid blocking bench-only (ST-Link power, no VM) sessions from
+   * getting through the encoder/IMU/IR checks first. */
   Stage_Buttons();          /* 6a */
-  Stage_NsleepDrvoff();     /* 6b -- halts here if wrong */
-  Stage_Spi2Drivers();      /* 6c -- halts here on dead bus or real fault */
+  Stage_NsleepDrvoff();     /* 6b -- halts here if wrong (MCU-side only, no VM needed) */
   Stage_Spi1Encoders();     /* 6d */
   Stage_Imu();              /* 6e */
   Stage_IrSensors();        /* 6f */
+  Stage_Spi2Drivers();      /* 6c -- halts here on dead bus or real fault; needs VM */
 
   /* Reached the end without a hard fail (Bringup_Halt() never returns).
    * Show the summary color briefly, then hand control back to main() --

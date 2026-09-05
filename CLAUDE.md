@@ -15,19 +15,40 @@ config lives in [F405_CubeMX_pinmap.md](F405_CubeMX_pinmap.md), which is the sou
 for pin assignments, clock tree, and peripheral init order. Read it before touching any
 peripheral init code.
 
-## Hardware status (as of 2026-08-24)
+## Hardware status (as of 2026-09-06)
 
 Known open issues on the assembled board — do not assume these are resolved unless told
 otherwise:
-- Previously measured ~11 Ω between 3V3 and GND (near-short), suspected QFN solder bridge on
-  one of the two DRV8316 drivers. Root cause status unknown at any given session — ask before
-  assuming it's fixed.
-- Missing pull resistors from schematic, bodged in: `nFAULT` (PC9) needs 10k pull-up,
-  `SPI2_MISO` (PB14) needs 10k pull-up.
+- ~11 Ω between 3V3 and GND (near-short) was measured at the start of bring-up, suspected QFN
+  solder bridge on one of the two DRV8316 drivers. Still **not root-caused**: a later live
+  check found `VM`/`PVDD`-to-GND reads a normal ~1600 Ω on *both* M1 and M2 (rules out the
+  short being on that specific pin), but M2 was observed running noticeably warmer than M1
+  while sitting idle (no PWM ever enabled) — consistent with the short still being present
+  somewhere else on M2's rail. Ask before assuming this is resolved.
+- `nFAULT` (PC9) and `SPI2_MISO` (PB14) 10k pull-up bodges (missing from the original
+  schematic) are now **confirmed physically installed** — see
+  [F405_CubeMX_pinmap.md](F405_CubeMX_pinmap.md)'s "Recent board modifications" section. Code
+  comments referencing these as missing/unconfirmed are stale; don't re-add that framing.
+- New open item from that same pinmap update: whether the **AS5047P's SDO needs a pull-up on
+  `SPI1_MISO` (PA6)** hasn't been checked against its datasheet, unlike SPI2's SDO pins which
+  were confirmed to need one. Live bring-up data shows both encoders reading exactly `0`, with
+  `parity_ok` trivially `true` (an all-zero frame satisfies even parity by construction, so
+  this does NOT confirm a real reading -- see `Core/Inc/as5047p.h`/`bringup.c` comments). Two
+  independent encoders both landing on exactly 0 simultaneously is far more consistent with
+  "SPI1 got no response" than genuine data. Not yet confirmed whether rotating the magnet by
+  hand changes the reading -- that's the next test, no PSU needed.
+- The IMU reads a flat `0xFF` (not `0x00`) -- consistent with SPI2's now-installed MISO
+  pull-up holding the line high while the IMU specifically doesn't respond (CS/power/SPI-mode
+  issue on that one device), separate from the SPI1/encoder symptom above.
+- **IR emitter/receiver pairs are not yet physically connected/populated on the board** — the
+  all-zero `ir_baseline`/`ir_lit`/`ir_responds` bring-up results are expected and unrelated to
+  the encoder/IMU investigation above, not a sign of a shared rail fault. Revisit once the IR
+  hardware is actually wired up.
 - Buck network issue on the DRV8316 `FB_BK` net: a 47 µH inductor is populated where a 22 Ω
   resistor belongs. Mitigation is `BUCK_DIS=1` written over SPI before the driver is ever
   enabled — this is enforced in firmware (see below) but the DRV8316 register map used to do
-  it is **unverified** (see `Core/Inc/drv8316.h`).
+  it, while now cross-checked against a working reference driver, is still not verified
+  against the TI datasheet directly (see `Core/Inc/drv8316.h`).
 - No external crystal — clock is HSI → PLL → 168 MHz only, no HSE/LSE.
 
 There is no UART on this board. Bring-up test results are surfaced two ways: an RGB LED

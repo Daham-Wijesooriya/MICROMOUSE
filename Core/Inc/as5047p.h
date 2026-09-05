@@ -12,6 +12,16 @@
  * then send a NOP and the PREVIOUS command's data comes back in that second
  * response frame. bit14 of the response is EF (error flag) -- if set, read
  * ERRFL (0x0001) to find out why.
+ *
+ * !!! OPEN ITEM (F405_CubeMX_pinmap.md) !!!
+ * Unlike SPI2 (whose DRV8316/IMU SDO pins are confirmed to need + now have
+ * a 10k SPI1_MISO-style pull-up bodge), whether the AS5047P's MISO needs
+ * one has NOT been confirmed against its datasheet. If encoder reads come
+ * back wrong, a 10k SPI1_MISO (PA6) -> 3V3 pull-up is the first hardware
+ * thing to try -- but note a genuinely floating MISO typically produces
+ * noisy/jumping values, not a clean constant reading, so a flat 0 from
+ * both encoders points more toward CS/power/protocol than a missing
+ * pull-up specifically.
  ******************************************************************************
  */
 #ifndef AS5047P_H

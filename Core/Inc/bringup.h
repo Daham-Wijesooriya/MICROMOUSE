@@ -2,7 +2,9 @@
  ******************************************************************************
  * @file    bringup.h
  * @brief   Peripheral-by-peripheral bring-up test sequencer (plan steps
- *          6a-6f). No UART exists on this board, so results are:
+ *          6a-6f, run in an order that puts the VM-dependent DRV8316 stage
+ *          (6c) last -- see Bringup_RunAll()). No UART exists on this
+ *          board, so results are:
  *            1) latched into g_bringup (inspect live with a debugger), and
  *            2) summarized on the RGB LED (see Bringup_RunAll doc comment).
  *
